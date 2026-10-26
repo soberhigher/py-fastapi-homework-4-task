@@ -503,14 +503,17 @@ async def login_user(
     jwt_refresh_token = jwt_manager.create_refresh_token({"user_id": user.id})
 
     try:
-        refresh_token = RefreshTokenModel.create(
-            user_id=user.id,
-            days_valid=settings.LOGIN_TIME_DAYS,
-            token=jwt_refresh_token
-        )
-        db.add(refresh_token)
-        await db.flush()
-        await db.commit()
+        stmt = select(RefreshTokenModel).filter_by(token=jwt_refresh_token)
+        result = await db.execute(stmt)
+        if not result.scalars().first():
+            refresh_token = RefreshTokenModel.create(
+                user_id=user.id,
+                days_valid=settings.LOGIN_TIME_DAYS,
+                token=jwt_refresh_token
+            )
+            db.add(refresh_token)
+            await db.flush()
+            await db.commit()
     except SQLAlchemyError:
         await db.rollback()
         raise HTTPException(
